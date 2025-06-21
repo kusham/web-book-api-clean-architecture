@@ -1,10 +1,14 @@
-# BookStore Clean Architecture Project
+# WEB-BOOK-API
 
 A comprehensive .NET 8 Web API project demonstrating Clean Architecture principles with Entity Framework Core, CQRS pattern using MediatR, Unit of Work pattern, JWT authentication, and comprehensive testing.
 
 ## 🏗️ Architecture Overview
 
-This project follows Clean Architecture principles with the following layers:
+-   **Books:** CRUD operations for books.
+-   **Customers:** CRUD operations for customers.
+-   **Orders:** CRUD operations for orders.
+-   **Authentication:** JWT-based authentication with user and admin roles.
+-   **Database:** MySQL database running in a Docker container.
 
 - **Domain Layer**: Core business entities, value objects, enums, and domain exceptions
 - **Application Layer**: Use cases, DTOs, interfaces, and business logic
@@ -12,7 +16,13 @@ This project follows Clean Architecture principles with the following layers:
 - **API Layer**: Controllers, authentication, and API endpoints
 - **Tests**: Unit tests, integration tests, and API tests
 
-## 🚀 Features
+-   .NET 8
+-   ASP.NET Core
+-   Entity Framework Core
+-   MediatR
+-   AutoMapper
+-   Docker
+-   MySQL
 
 - **Clean Architecture**: Proper separation of concerns with dependency inversion
 - **CQRS Pattern**: Command Query Responsibility Segregation using MediatR
@@ -25,112 +35,56 @@ This project follows Clean Architecture principles with the following layers:
 - **Comprehensive Testing**: Unit tests, integration tests, and API tests
 - **Repository Pattern**: Data access abstraction
 
-## 🔄 CQRS + Unit of Work Combination
+To get the application running, you'll need Docker and Docker Compose installed.
 
-This project demonstrates how to effectively combine CQRS with MediatR and Unit of Work patterns:
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/WEB-BOOK-API.git
+    cd WEB-BOOK-API
+    ```
 
-### **Commands (Write Operations) with Transaction Management**
+2.  **Run with Docker Compose:**
+    ```bash
+    docker-compose up --build
+    ```
 
-```csharp
-// CreateOrderCommand - Complex business operation with transaction
-public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, OrderDto>
-{
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
+The API will be available at `http://localhost:5000`.
 
-    public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
-    {
-        // Start transaction for complex business operation
-        await _unitOfWork.BeginTransactionAsync();
+## API Endpoints
 
-        try
-        {
-            // Validate customer exists
-            var customer = await _unitOfWork.Customers.GetByIdAsync(request.CustomerId);
-            if (customer == null)
-                throw new InvalidOperationException($"Customer with ID {request.CustomerId} not found");
+### Authentication
 
-            // Create order
-            var order = new Order(request.CustomerId, shippingAddress, request.PaymentMethod);
+-   `POST /api/auth/register` - Register a new user.
+-   `POST /api/auth/login` - Log in and get a JWT token.
 
-            // Process each order item
-            foreach (var itemDto in request.OrderItems)
-            {
-                var book = await _unitOfWork.Books.GetByIdAsync(itemDto.BookId);
-                if (book.StockQuantity < itemDto.Quantity)
-                    throw new InvalidOperationException($"Insufficient stock for book '{book.Title}'");
+### Books
 
-                // Add item to order (reserves stock)
-                order.AddOrderItem(book, itemDto.Quantity);
-                await _unitOfWork.Books.UpdateAsync(book);
-            }
+-   `GET /api/books` - Get all books.
+-   `GET /api/books/{id}` - Get a book by ID.
+-   `POST /api/books` - Create a new book (Admin only).
+-   `PUT /api/books/{id}` - Update a book (Admin only).
+-   `DELETE /api/books/{id}` - Delete a book (Admin only).
 
-            // Save order
-            var createdOrder = await _unitOfWork.Orders.AddAsync(order);
-            await _unitOfWork.SaveChangesAsync();
+### Customers
 
-            // Commit transaction
-            await _unitOfWork.CommitTransactionAsync();
+-   `GET /api/customers` - Get all customers.
+-   `GET /api/customers/{id}` - Get a customer by ID.
+-   `GET /api/customers/email/{email}` - Get a customer by email.
+-   `POST /api/customers` - Create a new customer (Admin only).
+-   `PUT /api/customers/{id}` - Update a customer (Admin only).
+-   `PUT /api/customers/{id}/status` - Update customer status (Admin only).
+-   `DELETE /api/customers/{id}` - Delete a customer (Admin only).
 
-            return _mapper.Map<OrderDto>(createdOrder);
-        }
-        catch
-        {
-            // Rollback transaction on any error
-            await _unitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
-}
-```
-
-### **Queries (Read Operations) - Simple Data Retrieval**
-
-```csharp
-// GetAllBooksQuery - Simple read operation
-public class GetAllBooksQueryHandler : IRequestHandler<GetAllBooksQuery, IEnumerable<BookDto>>
-{
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IMapper _mapper;
-
-    public async Task<IEnumerable<BookDto>> Handle(GetAllBooksQuery request, CancellationToken cancellationToken)
-    {
-        var books = await _unitOfWork.Books.GetAllAsync();
-        return _mapper.Map<IEnumerable<BookDto>>(books);
-    }
-}
-```
-
-### **Controller Using MediatR**
-
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-[Authorize]
-public class OrdersController : ControllerBase
-{
-    private readonly IMediator _mediator;
-
-    public OrdersController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateOrderCommand command)
-    {
-        var order = await _mediator.Send(command);
-        return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var orders = await _mediator.Send(new GetAllOrdersQuery());
-        return Ok(orders);
-    }
-}
-```
+### Orders
+-   `GET /api/orders` - Get all orders.
+-   `GET /api/orders/{id}` - Get an order by ID.
+-   `GET /api/orders/customer/{customerId}` - Get all orders for a customer.
+-   `GET /api/orders/status/{status}` - Get orders by status.
+-   `POST /api/orders` - Create a new order (Admin only).
+-   `POST /api/orders/{id}/items` - Add an item to an order.
+-   `PUT /api/orders/{id}/status` - Update order status (Admin only).
+-   `PUT /api/orders/{id}` - Update an order (Admin only).
+-   `DELETE /api/orders/{id}` - Delete an order (Admin only).
 
 ## 📁 Project Structure
 
@@ -243,34 +197,6 @@ The API uses JWT authentication. To get a token:
    ```
    Authorization: Bearer <your-token>
    ```
-
-## 📚 API Endpoints
-
-### Books
-- `GET /api/books` - Get all books
-- `GET /api/books/{id}` - Get book by ID
-- `POST /api/books` - Create new book (Admin only)
-- `PUT /api/books/{id}` - Update book (Admin only)
-- `DELETE /api/books/{id}` - Delete book (Admin only)
-
-### Customers
-- `GET /api/customers` - Get all customers
-- `GET /api/customers/{id}` - Get customer by ID
-- `POST /api/customers` - Create new customer
-- `PUT /api/customers/{id}` - Update customer
-- `DELETE /api/customers/{id}` - Delete customer
-
-### Orders
-- `GET /api/orders` - Get all orders
-- `GET /api/orders/{id}` - Get order by ID
-- `POST /api/orders` - Create new order
-- `PUT /api/orders/{id}/status` - Update order status (Admin only)
-- `PUT /api/orders/{id}` - Update order
-- `DELETE /api/orders/{id}` - Delete order (Admin only)
-
-### Authentication
-- `POST /api/auth/login` - Login and get JWT token
-- `GET /api/auth/me` - Get current user info (Authenticated)
 
 ## 🧪 Running Tests
 
