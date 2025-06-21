@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  bookstore-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookstore-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=bookstore-db;Port=3306;Database=bookstoredb;User=user;Password=password;
+      - Jwt__Key=ThisIsAStrongAndLongSecretKeyForJWTTokens-ChangeThisInProduction
+      - Jwt__Issuer=BookStore.API
+      - Jwt__Audience=BookStore.Users
+    depends_on:
+      - bookstore-db
+    networks:
+      - bookstore-network
+
+  bookstore-db:
+    image: mysql:8.0
+    container_name: bookstore-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: bookstoredb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - bookstore-network
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+volumes:
+  mysql-data:
+
+networks:
+  bookstore-network:
+    driver: bridge 
